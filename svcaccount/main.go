@@ -23,6 +23,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 	sal "github.com/salrashid123/oauth2/tpm"
 )
 
@@ -86,9 +87,6 @@ func main() {
 
 	flag.Parse()
 
-	pcrList := []int{0}
-	pcrSelection := tpm2.PCRSelection{Hash: tpm2.AlgSHA256, PCRs: pcrList}
-
 	if *mode == "gencert" {
 		rwc, err := tpm2.OpenTPM(*tpmPath)
 		if err != nil {
@@ -119,15 +117,17 @@ func main() {
 			}
 		}
 
+		var kk *client.Key
+		var kh tpmutil.Handle
 		// A) either use the AK
 
 		// a1) Get Attestation Key
 		// AttestationKeyRSA generates and loads a key from AKTemplateRSA in the ***Owner*** hierarchy.
-		kk, err := client.AttestationKeyRSA(rwc)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "can't AK %q: %v", tpmPath, err)
-			os.Exit(1)
-		}
+		// kk, err = client.AttestationKeyRSA(rwc)
+		// if err != nil {
+		// 	fmt.Fprintf(os.Stderr, "can't AK %q: %v", tpmPath, err)
+		// 	os.Exit(1)
+		// }
 
 		// a2) only if on a GCE instance
 		// if you use the AK, the public key will be the same as
@@ -139,10 +139,14 @@ func main() {
 		// }
 
 		// get the keyhandle
-		//kh := kk.Handle()
+		// kh = kk.Handle()
+		// defer tpm2.FlushContext(rwc, kh)
 
 		// B) or Create a new Key
-		pkh, _, err := tpm2.CreatePrimary(rwc, tpm2.HandleEndorsement, pcrSelection, emptyPassword, emptyPassword, defaultKeyParams)
+		pcrList := []int{0}
+		pcrSelection := tpm2.PCRSelection{Hash: tpm2.AlgSHA256, PCRs: pcrList}
+
+		pkh, _, err := tpm2.CreatePrimary(rwc, tpm2.HandleOwner, pcrSelection, emptyPassword, emptyPassword, defaultKeyParams)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating Primary %v\n", err)
 			os.Exit(1)
@@ -167,14 +171,14 @@ func main() {
 			os.Exit(1)
 		}
 		// get the key handle
-		kh, _, err := tpm2.Load(rwc, pkh, defaultPassword, pubArea, privInternal)
+		kh, _, err = tpm2.Load(rwc, pkh, defaultPassword, pubArea, privInternal)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error  loading hash key %v\n", err)
 			os.Exit(1)
 		}
 		defer tpm2.FlushContext(rwc, kh)
 
-		// save the key handle
+		// save the key handle to disk
 
 		ekhBytes, err := tpm2.ContextSave(rwc, kh)
 		if err != nil {
@@ -187,11 +191,13 @@ func main() {
 			os.Exit(1)
 		}
 
+		fmt.Printf("======= Key persisted ========\n")
+
 		// Either way, load the Key
 
-		kk, err = client.NewCachedKey(rwc, tpm2.HandleEndorsement, rsaKeyParams, kh)
+		kk, err = client.NewCachedKey(rwc, tpm2.HandleOwner, rsaKeyParams, kh)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Couldnot load CachedKey: %v", err)
+			fmt.Fprintf(os.Stderr, "can't NewCachedKey %q: %v", tpmPath, err)
 			os.Exit(1)
 		}
 
@@ -210,9 +216,6 @@ func main() {
 
 		fmt.Printf("Signing Public Key: \n%s\n", akPubPEM)
 
-		fmt.Printf("======= Key persisted ========\n")
-
-		kk, err = client.NewCachedKey(rwc, tpm2.HandleEndorsement, rsaKeyParams, kh)
 		s, err := kk.GetSigner()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "can't getSigner %q: %v", tpmPath, err)
@@ -240,7 +243,7 @@ func main() {
 			Type: "CERTIFICATE REQUEST", Bytes: csrCertificate,
 		})
 
-		fmt.Printf("CSR: \n %s\n", csr)
+		fmt.Printf("CSR: \n%s\n", csr)
 
 		fmt.Printf("======= Creating self-signed Certificate ========\n")
 
@@ -344,7 +347,7 @@ func main() {
 		}
 		defer tpm2.FlushContext(rwc, kh)
 
-		k, err := client.NewCachedKey(rwc, tpm2.HandleEndorsement, rsaKeyParams, kh)
+		k, err := client.NewCachedKey(rwc, tpm2.HandleOwner, rsaKeyParams, kh)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Couldnot load CachedKey: %v", err)
 			os.Exit(1)
