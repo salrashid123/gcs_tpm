@@ -5,7 +5,7 @@ Samples in golang that enables the following where the private key or hmac secre
 1. HMAC SignedURLs:  
    - Import a GCS HMAC secret and use it to generate a SignedURL
 2. RSA SignedURL: 
-   - Generate an RSA Private Key on a TPM
+   - Generate an a new RSA Private Key on a TPM
    - Use RSA Private Key on TPM to create either:
      - a) Certificate Signing Request (CSR) for signing by another CA
      - b) Self Signed x509 Certificate
@@ -174,6 +174,50 @@ with oauth2 token
 ![images/oauth2.png](images/oauth2.png)
 
 ---
+
+### Using Attestation Key
+
+You can also use the Attestation Signing Key to sign the url or for an auth token.
+
+see [go-tpm-tools.client](https://pkg.go.dev/github.com/google/go-tpm-tools@v0.3.0-alpha/client#AttestationKeyRSA)
+
+```golang
+   // note this key is on  OWNER 
+
+		kk, err = client.AttestationKeyRSA(rwc)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "can't AK %q: %v", tpmPath, err)
+			os.Exit(1)
+      }
+      
+// GceAttestationKeyRSA generates and loads the GCE RSA AK. Note that this function will only work on a GCE VM. Unlike AttestationKeyRSA, this key uses the Endorsement Hierarchy and its template loaded from GceAKTemplateNVIndexRSA.
+
+// ```bash
+// gcloud compute instances get-shielded-identity tpm-test --zone us-central1-a --format="value(signingKey.ekPub)"
+// ```
+
+
+		kk, err = client.GceAttestationKeyRSA(rwc)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "can't AK %q: %v", tpmPath, err)
+			os.Exit(1)
+		}
+
+		pubKey := kk.PublicKey().(*rsa.PublicKey)
+		akBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR:  could not get MarshalPKIXPublicKey: %v", err)
+			os.Exit(1)
+		}
+		akPubPEM := pem.EncodeToMemory(
+			&pem.Block{
+				Type:  "PUBLIC KEY",
+				Bytes: akBytes,
+			},
+		)
+```
+
+Either way, you should have a go-tpm-tools Key object which you should persist.  Later on, you will load this Key and use it for Signing.
 
 ### Appendix
 

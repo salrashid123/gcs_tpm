@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -118,6 +119,29 @@ func main() {
 			}
 		}
 
+		// A) either use the AK
+
+		// a1) Get Attestation Key
+		// AttestationKeyRSA generates and loads a key from AKTemplateRSA in the ***Owner*** hierarchy.
+		kk, err := client.AttestationKeyRSA(rwc)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "can't AK %q: %v", tpmPath, err)
+			os.Exit(1)
+		}
+
+		// a2) only if on a GCE instance
+		// if you use the AK, the public key will be the same as
+		// gcloud compute instances get-shielded-identity tpm-test --zone us-central1-a --format="value(signingKey.ekPub)"
+		// kk, err = client.GceAttestationKeyRSA(rwc)
+		// if err != nil {
+		// 	fmt.Fprintf(os.Stderr, "can't AK %q: %v", tpmPath, err)
+		// 	os.Exit(1)
+		// }
+
+		// get the keyhandle
+		//kh := kk.Handle()
+
+		// B) or Create a new Key
 		pkh, _, err := tpm2.CreatePrimary(rwc, tpm2.HandleEndorsement, pcrSelection, emptyPassword, emptyPassword, defaultKeyParams)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating Primary %v\n", err)
@@ -131,36 +155,28 @@ func main() {
 			os.Exit(1)
 		}
 
-		// err = tpm2.FlushContext(rwc, pkh)
-		// if err != nil {
-		// 	fmt.Fprintf(os.Stderr, "ContextSave failed for pkh%v\n", err)
-		// 	os.Exit(1)
-		// }
 		err = ioutil.WriteFile(*primaryHandle, pkhBytes, 0644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ContextSave failed for pkh%v\n", err)
 			os.Exit(1)
 		}
 
-		// pkh, err = tpm2.ContextLoad(rwc, pkhBytes)
-		// if err != nil {
-		// 	fmt.Fprintf(os.Stderr, "ContextLoad failed for pkh %v\n", err)
-		// 	os.Exit(1)
-		// }
-
 		privInternal, pubArea, _, _, _, err := tpm2.CreateKey(rwc, pkh, pcrSelection, defaultPassword, defaultPassword, rsaKeyParams)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error  CreateKey %v\n", err)
 			os.Exit(1)
 		}
-		newHandle, _, err := tpm2.Load(rwc, pkh, defaultPassword, pubArea, privInternal)
+		// get the key handle
+		kh, _, err := tpm2.Load(rwc, pkh, defaultPassword, pubArea, privInternal)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error  loading hash key %v\n", err)
 			os.Exit(1)
 		}
-		defer tpm2.FlushContext(rwc, newHandle)
+		defer tpm2.FlushContext(rwc, kh)
 
-		ekhBytes, err := tpm2.ContextSave(rwc, newHandle)
+		// save the key handle
+
+		ekhBytes, err := tpm2.ContextSave(rwc, kh)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ContextSave failed for ekh %v\n", err)
 			os.Exit(1)
@@ -171,16 +187,62 @@ func main() {
 			os.Exit(1)
 		}
 
-		// pHandle := tpmutil.Handle(0x81010002)
-		// err = tpm2.EvictControl(rwc, defaultPassword, tpm2.HandleEndorsement, newHandle, pHandle)
-		// if err != nil {
-		// 	fmt.Fprintf(os.Stderr, "Error  persisting hash key  %v\n", err)
-		// 	os.Exit(1)
-		// }
-		// defer tpm2.FlushContext(rwc, pHandle)
+		// Either way, load the Key
+
+		kk, err = client.NewCachedKey(rwc, tpm2.HandleEndorsement, rsaKeyParams, kh)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Couldnot load CachedKey: %v", err)
+			os.Exit(1)
+		}
+
+		pubKey := kk.PublicKey().(*rsa.PublicKey)
+		akBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR:  could not get MarshalPKIXPublicKey: %v", err)
+			os.Exit(1)
+		}
+		akPubPEM := pem.EncodeToMemory(
+			&pem.Block{
+				Type:  "PUBLIC KEY",
+				Bytes: akBytes,
+			},
+		)
+
+		fmt.Printf("Signing Public Key: \n%s\n", akPubPEM)
 
 		fmt.Printf("======= Key persisted ========\n")
-		fmt.Printf("======= Creating x509 Certificate ========\n")
+
+		kk, err = client.NewCachedKey(rwc, tpm2.HandleEndorsement, rsaKeyParams, kh)
+		s, err := kk.GetSigner()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "can't getSigner %q: %v", tpmPath, err)
+			os.Exit(1)
+		}
+
+		var csrTemplate = x509.CertificateRequest{
+			Subject: pkix.Name{
+				Organization:       []string{"Acme Co"},
+				OrganizationalUnit: []string{"Enterprise"},
+				Locality:           []string{"Mountain View"},
+				Province:           []string{"California"},
+				Country:            []string{"US"},
+				CommonName:         *cn,
+			},
+			SignatureAlgorithm: x509.SHA256WithRSA,
+		}
+		// step: generate the csr request
+		csrCertificate, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, s)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "can't create CSR %v", err)
+			os.Exit(1)
+		}
+		csr := pem.EncodeToMemory(&pem.Block{
+			Type: "CERTIFICATE REQUEST", Bytes: csrCertificate,
+		})
+
+		fmt.Printf("CSR: \n %s\n", csr)
+
+		fmt.Printf("======= Creating self-signed Certificate ========\n")
 
 		var notBefore time.Time
 		notBefore = time.Now()
@@ -213,36 +275,6 @@ func main() {
 			IsCA:                  false,
 		}
 
-		kk, err := client.NewCachedKey(rwc, tpm2.HandleEndorsement, rsaKeyParams, newHandle)
-		s, err := kk.GetSigner()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "can't getSigner %q: %v", tpmPath, err)
-			os.Exit(1)
-		}
-
-		var csrTemplate = x509.CertificateRequest{
-			Subject: pkix.Name{
-				Organization:       []string{"Acme Co"},
-				OrganizationalUnit: []string{"Enterprise"},
-				Locality:           []string{"Mountain View"},
-				Province:           []string{"California"},
-				Country:            []string{"US"},
-				CommonName:         *cn,
-			},
-			SignatureAlgorithm: x509.SHA256WithRSA,
-		}
-		// step: generate the csr request
-		csrCertificate, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, s)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "can't create CSR %v", err)
-			os.Exit(1)
-		}
-		csr := pem.EncodeToMemory(&pem.Block{
-			Type: "CERTIFICATE REQUEST", Bytes: csrCertificate,
-		})
-
-		fmt.Printf("CSR: \n %s\n", csr)
-
 		derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, kk.PublicKey(), s)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to create certificate: %s\n", err)
@@ -266,7 +298,7 @@ func main() {
 			Type: "CERTIFICATE", Bytes: derBytes,
 		})
 
-		fmt.Printf("CERTIFICATE: \n %s\n", cert)
+		fmt.Printf("CERTIFICATE: \n%s\n", cert)
 
 		fmt.Fprintf(os.Stderr, "wrote %s\n", *x509certFile)
 	} else if *mode == "genurl" {
