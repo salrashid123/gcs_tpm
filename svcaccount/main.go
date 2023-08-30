@@ -22,7 +22,7 @@ import (
 	"google.golang.org/api/option"
 
 	"cloud.google.com/go/storage"
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 	sal "github.com/salrashid123/oauth2/tpm"
 )
