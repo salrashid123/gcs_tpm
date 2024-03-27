@@ -12,7 +12,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"os"
@@ -159,7 +158,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = ioutil.WriteFile(*primaryHandle, pkhBytes, 0644)
+		err = os.WriteFile(*primaryHandle, pkhBytes, 0644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ContextSave failed for pkh%v\n", err)
 			os.Exit(1)
@@ -185,7 +184,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "ContextSave failed for ekh %v\n", err)
 			os.Exit(1)
 		}
-		err = ioutil.WriteFile(*keyHandle, ekhBytes, 0644)
+		err = os.WriteFile(*keyHandle, ekhBytes, 0644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ContextSave failed for ekh%v\n", err)
 			os.Exit(1)
@@ -335,7 +334,7 @@ func main() {
 			}
 		}
 
-		khBytes, err := ioutil.ReadFile(*keyHandle)
+		khBytes, err := os.ReadFile(*keyHandle)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ContextLoad read file for kh: %v", err)
 			os.Exit(1)
@@ -384,20 +383,49 @@ func main() {
 			return
 		}
 		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		fmt.Printf("SignedURL Response :\n%s\n", string(body))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting object %s\n", err)
 			return
 		}
 	} else if *mode == "useclient" {
+		rwc, err := tpm2.OpenTPM(*tpmPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't open TPM %s: %v", *tpmPath, err)
+			os.Exit(1)
+		}
+		defer func() {
+			if err := rwc.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "can't close TPM %s: %v", *tpmPath, err)
+				os.Exit(1)
+			}
+		}()
+
+		khBytes, err := os.ReadFile(*keyHandle)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ContextLoad read file for kh: %v", err)
+			os.Exit(1)
+		}
+		kh, err := tpm2.ContextLoad(rwc, khBytes)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ContextLoad failed for kh: %v", err)
+			os.Exit(1)
+		}
+		defer tpm2.FlushContext(rwc, kh)
+
+		k, err := client.NewCachedKey(rwc, tpm2.HandleOwner, rsaKeyParams, kh)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Couldnot load CachedKey: %v", err)
+			os.Exit(1)
+		}
 
 		ts, err := sal.TpmTokenSource(
 			&sal.TpmTokenConfig{
-				Tpm:   "/dev/tpm0",
-				Email: *cn,
+				TPMDevice: rwc,
+				Email:     *cn,
 				//KeyId:         *keyId,
-				KeyHandleFile: *keyHandle,
+				Key:           k,
 				UseOauthToken: true,
 			},
 		)
