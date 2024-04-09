@@ -92,12 +92,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Can't open TPM %s: %v", *tpmPath, err)
 			os.Exit(1)
 		}
-		defer func() {
-			if err := rwc.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "can't close TPM %s: %v", *tpmPath, err)
-				os.Exit(1)
-			}
-		}()
+		defer rwc.Close()
 
 		totalHandles := 0
 		for _, handleType := range handleNames[*flush] {
@@ -395,12 +390,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Can't open TPM %s: %v", *tpmPath, err)
 			os.Exit(1)
 		}
-		defer func() {
-			if err := rwc.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "can't close TPM %s: %v", *tpmPath, err)
-				os.Exit(1)
-			}
-		}()
+		defer rwc.Close()
 
 		khBytes, err := os.ReadFile(*keyHandle)
 		if err != nil {
@@ -414,18 +404,25 @@ func main() {
 		}
 		defer tpm2.FlushContext(rwc, kh)
 
-		k, err := client.NewCachedKey(rwc, tpm2.HandleOwner, rsaKeyParams, kh)
+		// k, err := client.NewCachedKey(rwc, tpm2.HandleOwner, rsaKeyParams, kh)
+		// if err != nil {
+		// 	fmt.Fprintf(os.Stderr, "Couldnot load CachedKey: %v", err)
+		// 	os.Exit(1)
+		// }
+		hv := kh.HandleValue()
+		err = rwc.Close()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Couldnot load CachedKey: %v", err)
+			fmt.Fprintf(os.Stderr, "Couldnot close TPM: %v", err)
 			os.Exit(1)
 		}
-
 		ts, err := sal.TpmTokenSource(
 			&sal.TpmTokenConfig{
-				TPMDevice: rwc,
-				Email:     *cn,
-				//KeyId:         *keyId,
-				Key:           k,
+				//TPMDevice: rwc,
+				// Key:           k,
+
+				TPMPath:       *tpmPath,
+				KeyHandle:     hv,
+				Email:         *cn,
 				UseOauthToken: true,
 			},
 		)

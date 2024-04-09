@@ -74,7 +74,7 @@ gsutil hmac list -p $PROJECT_ID
 
 # Create a VM with a TPM
 gcloud compute  instances create tpm-test \
-   --image=debian-10-buster-v20210701 --image-project=debian-cloud  \
+   --image=family=debian-11--image-project=debian-cloud  \
   --machine-type "n1-standard-1"  \
   --shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring  \
   --zone us-central1-a
@@ -90,11 +90,7 @@ sudo su -
 apt-get update -y
 apt-get install wget curl git -y
 
-# install golang 1.15 https://golang.org/doc/install
-wget https://golang.org/dl/go1.15.14.linux-amd64.tar.gz
-rm -rf /usr/local/go && tar -C /usr/local -xzf go1.15.14.linux-amd64.tar.gz
-export PATH=$PATH:/usr/local/go/bin
-
+# install golang 1.20+ https://golang.org/doc/install
 ## *optionally* install tpm2_tools https://tpm2-tools.readthedocs.io/en/latest/INSTALL/
 
 # get the source
@@ -152,7 +148,7 @@ go run svcaccount/main.go  --mode=gencert --cn=tpm-svc-account@$PROJECT_ID.iam.g
 # copy x509cert.pem to laptop
 
 # on LAPTOP, upload the 509 cert and associate it with a service account
-gcloud beta iam service-accounts keys upload x509cert.pem --iam-account=tpm-svc-account@$PROJECT_ID.iam.gserviceaccount.com
+gcloud iam service-accounts keys upload x509cert.pem --iam-account=tpm-svc-account@$PROJECT_ID.iam.gserviceaccount.com
 
 gcloud iam service-accounts keys list --iam-account tpm-svc-account@$PROJECT_ID.iam.gserviceaccount.com
     KEY_ID                                    CREATED_AT            EXPIRES_AT

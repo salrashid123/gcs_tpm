@@ -53,6 +53,8 @@ github.com/golang-jwt/jwt v3.2.2+incompatible h1:IfV12K8xAKAnZqdXVzCZ+TOjboZ2keL
 github.com/golang-jwt/jwt v3.2.2+incompatible/go.mod h1:8pz2t5EyA70fFQQSrl6XZXzqecmYZeUEB8OUGHkxJ+I=
 github.com/golang-jwt/jwt/v4 v4.5.0 h1:7cYmW1XlMY7h7ii7UhUyChSgS5wUJEnm9uZVTGqOWzg=
 github.com/golang-jwt/jwt/v4 v4.5.0/go.mod h1:m21LjoU+eqJr34lmDMbreY2eSTRJ1cv77w39/MY0Ch0=
+github.com/golang-jwt/jwt/v5 v5.2.1 h1:OuVbFODueb089Lh128TAcimifWaLhJwVflnrgM17wHk=
+github.com/golang-jwt/jwt/v5 v5.2.1/go.mod h1:pqrtFR0X4osieyHYxtmOUWsAWrfe1Q5UVIyoH402zdk=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
@@ -134,10 +136,14 @@ github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/salrashid123/golang-jwt-tpm v1.1.2 h1:Arsj8FKUb8TiNFC1bOEqfssSSWkWoNccyDsdAKG2vOg=
 github.com/salrashid123/golang-jwt-tpm v1.1.2/go.mod h1:yipaLDdIYPikIhVhp4PD4x01dxTGYQFBIN3+DwHNESE=
+github.com/salrashid123/golang-jwt-tpm v1.3.0 h1:N9TIfe+TNVyGHi7xfJq4mOtr6pkZqVshc3zQuXh/wCQ=
+github.com/salrashid123/golang-jwt-tpm v1.3.0/go.mod h1:kxgtjiHArZCs+O0wNxr+nKMUTazdH3vWqBfjuQeMIm8=
 github.com/salrashid123/oauth2/tpm v0.0.0-20210527113859-ca6b525517e2 h1:YOz/wZZHq1Uz6o4Kzygrt5s5j5Rs3KZIrq6XMX9ecDQ=
 github.com/salrashid123/oauth2/tpm v0.0.0-20210527113859-ca6b525517e2/go.mod h1:F4uAnE0lLotlMrSsgZaHD2EDJ9orY0LkefcbuNhvd2k=
 github.com/salrashid123/oauth2/tpm v0.0.0-20240327104110-15131c35bf9d h1:/virey7fY5tFxFFom3KHUAhhtLOnCeH2uNTjl8Gudxo=
 github.com/salrashid123/oauth2/tpm v0.0.0-20240327104110-15131c35bf9d/go.mod h1:/6D4hD7O7jQA85CnIaH9Ol0eZT7oN+nLS7K6y6K6w7w=
+github.com/salrashid123/oauth2/tpm v0.0.0-20240408224451-9fa080229b40 h1:W2g4DFl9WOvolwVncThNLITVT9rQz7TzkD3GKahP99I=
+github.com/salrashid123/oauth2/tpm v0.0.0-20240408224451-9fa080229b40/go.mod h1:LtUsr9e1h7gQfBUbkaHvSrD/I7Zf2afgh/UjKi7tgcQ=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
